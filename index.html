@@ -1,108 +1,632 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fotky do PDF</title>
+    
+    <!-- SEO & Meta Tags -->
+    <title>Images to PDF | Secure Client-side Converter</title>
+    <meta name="description" content="Convert multiple images into a single PDF document securely in your browser. No server uploads, free and instant.">
+    <meta property="og:title" content="Images to PDF | Secure Client-side Converter">
+    <meta property="og:description" content="Turn your photos into a PDF instantly. Privacy-first, runs entirely in your browser.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://via.placeholder.com/1200x630/0f0f11/ffffff?text=Images+to+PDF">
+    
+    <!-- External Lib for PDF Generation only -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
-        .drag-active {
-            border-color: #3b82f6;
-            background-color: #eff6ff;
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            --bg-color: #0f0f11;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #a1a1aa;
+            --accent-color: #6366f1; /* Indigo */
+            --accent-hover: #4f46e5;
+            --danger-color: #ef4444;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --spacing-unit: 1rem;
+            --radius-lg: 16px;
+            --radius-sm: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* --- TYPOGRAPHY --- */
+        h1, h2, h3 {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            background: linear-gradient(to bottom right, #fff, #a1a1aa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: var(--text-muted);
+        }
+
+        /* --- LAYOUT UTILITIES --- */
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-unit);
+        }
+
+        /* --- HEADER --- */
+        .app-header {
+            padding: 1.5rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-weight: 600;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo span {
+            color: var(--accent-color);
+        }
+
+        .lang-switch {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--card-bg);
+            padding: 0.25rem;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+        }
+
+        .lang-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            border-radius: 16px;
+            transition: var(--transition);
+        }
+
+        .lang-btn.active {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-weight: 500;
+        }
+
+        /* --- HERO --- */
+        .hero {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .hero__subtitle {
+            font-size: 1.125rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* --- TOOL CARD (MAIN APP) --- */
+        .tool-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin-bottom: 4rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.8s ease-out 0.2s backwards;
+        }
+
+        /* Dropzone */
+        .dropzone {
+            border: 2px dashed var(--card-border);
+            border-radius: var(--radius-sm);
+            padding: 3rem 1rem;
+            text-align: center;
+            transition: var(--transition);
+            cursor: pointer;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .dropzone:hover, .dropzone.drag-active {
+            border-color: var(--accent-color);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .dropzone__icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* Preview Grid */
+        .preview-area {
+            display: none; /* Hidden by default */
+            margin-bottom: 2rem;
+        }
+        
+        .preview-area.has-files {
+            display: block;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+        }
+
+        .preview-item {
+            position: relative;
+            aspect-ratio: 1;
+            background: #27272a;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            cursor: grab;
+            border: 1px solid transparent;
+            transition: transform 0.2s;
+        }
+        
+        .preview-item:active {
+            cursor: grabbing;
+        }
+
+        .preview-item.dragging {
+            opacity: 0.5;
+            border-color: var(--accent-color);
+        }
+        
+        .preview-item.drag-over {
+            transform: scale(1.05);
+            border-color: var(--accent-color);
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none; /* Prevents image drag, we want div drag */
+        }
+
+        .preview-badge {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(239, 68, 68, 0.9);
+            border: none;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .preview-item:hover .remove-btn {
+            opacity: 1;
+        }
+
+        /* Action Bar */
+        .action-bar {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            align-items: center;
+            border-top: 1px solid var(--card-border);
+            padding-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-text {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+
+        .btn-text:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 4px;
+            background: #27272a;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* --- HOW IT WORKS --- */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .step-item {
+            padding: 1rem;
+            border-left: 1px solid var(--card-border);
+        }
+
+        .step-number {
+            font-size: 0.875rem;
+            color: var(--accent-color);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .step-title {
+            font-size: 1.25rem;
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        /* --- FOOTER --- */
+        .app-footer {
+            margin-top: auto;
+            border-top: 1px solid var(--card-border);
+            padding: 2rem 0;
+            text-align: center;
+            font-size: 0.875rem;
+            color: #52525b;
+        }
+        
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255,255,255,0.05);
+            padding: 0.25rem 0.75rem;
+            border-radius: 99px;
+            margin-top: 1rem;
+            font-size: 0.75rem;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hidden { display: none !important; }
+
+        /* Mobile tweaks */
+        @media (max-width: 640px) {
+            .action-bar {
+                flex-direction: column-reverse;
+                gap: 0.5rem;
+            }
+            .action-bar > * {
+                width: 100%;
+                justify-content: center;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 font-sans text-gray-800">
+<body>
 
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-        
-        <!-- Header -->
-        <div class="bg-blue-600 p-6 text-white">
-            <h1 class="text-2xl font-bold">Převodník fotek do PDF</h1>
-            <p class="text-blue-100 text-sm mt-1">Vše probíhá ve vašem prohlížeči. Žádné nahrávání na server.</p>
+    <header class="container app-header">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>OBSIDIA</span> / TOOLS
         </div>
+        <div class="lang-switch">
+            <button class="lang-btn active" onclick="setLanguage('en')">EN</button>
+            <button class="lang-btn" onclick="setLanguage('cs')">CS</button>
+        </div>
+    </header>
 
-        <div class="p-6">
+    <main class="container">
+        
+        <!-- Hero -->
+        <section class="hero">
+            <h1 data-i18n="title">Seamless Image to PDF Converter</h1>
+            <p class="hero__subtitle" data-i18n="subtitle">
+                Privacy-first conversion directly in your browser. No server uploads, completely free.
+            </p>
+        </section>
+
+        <!-- Tool Card -->
+        <section class="tool-card">
             
-            <!-- Controls -->
-            <div class="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
-                <div class="w-full md:w-auto">
-                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
-                    <label for="fileInput" class="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 px-6 py-3 rounded-lg font-medium border border-blue-200 transition-colors flex items-center justify-center gap-2 w-full md:w-auto">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Vybrat fotky (lze i 200+)
-                    </label>
+            <input type="file" id="fileInput" class="file-input" multiple accept="image/*">
+            
+            <!-- Upload Zone -->
+            <div class="dropzone" id="dropzone">
+                <div class="dropzone__content">
+                    <svg class="dropzone__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <div style="margin-bottom: 1rem;">
+                        <button class="btn-primary" onclick="document.getElementById('fileInput').click()">
+                            <span data-i18n="uploadBtn">Upload Images</span>
+                        </button>
+                    </div>
+                    <p class="text-sm" data-i18n="uploadHint">or drop files here</p>
                 </div>
+            </div>
 
-                <div class="flex gap-2 w-full md:w-auto">
-                    <button id="clearBtn" class="hidden px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors">
-                        Smazat vše
-                    </button>
-                    <button id="generateBtn" disabled class="flex-1 md:flex-none px-6 py-3 bg-gray-300 text-gray-500 rounded-lg font-bold cursor-not-allowed transition-colors flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Stáhnout PDF
-                    </button>
+            <!-- Preview Area -->
+            <div id="previewArea" class="preview-area">
+                <div class="preview-header">
+                    <span id="fileCount">0 images selected</span>
+                    <span style="font-size: 0.75rem; opacity: 0.7;" data-i18n="step2Desc">Rearrange pages visually</span>
+                </div>
+                <div id="previewGrid" class="preview-grid">
+                    <!-- JS generated items -->
                 </div>
             </div>
 
             <!-- Status & Progress -->
-            <div id="statusArea" class="hidden mb-6">
-                <div class="flex justify-between text-sm font-medium mb-1 text-gray-600">
-                    <span id="statusText">Zpracovávám...</span>
+            <div id="progressContainer" class="progress-container">
+                <div class="progress-info">
+                    <span id="statusText">Processing...</span>
                     <span id="progressPercent">0%</span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div class="progress-track">
+                    <div id="progressFill" class="progress-fill"></div>
                 </div>
             </div>
 
-            <div id="errorMsg" class="hidden mb-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg"></div>
-
-            <!-- Preview Grid -->
-            <div class="border-t pt-4">
-                <div class="flex justify-between items-end mb-2">
-                    <h2 class="text-lg font-semibold text-gray-700">Náhled <span id="countBadge" class="ml-2 text-sm bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full hidden">0</span></h2>
-                    <span class="text-xs text-gray-400">Pořadí odpovídá pořadí v PDF</span>
-                </div>
-                
-                <div id="previewArea" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 min-h-[200px] border-2 border-dashed border-gray-300 rounded-lg p-4 items-center justify-center text-gray-400 bg-gray-50">
-                    <div class="text-center pointer-events-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <p class="text-sm">Klikněte na tlačítko nahoře<br>nebo přetáhněte fotky sem</p>
-                    </div>
-                </div>
+            <!-- Actions -->
+            <div class="action-bar">
+                <button id="clearBtn" class="btn-text hidden" onclick="clearAll()" data-i18n="clearBtn">Clear All</button>
+                <button id="generateBtn" class="btn-primary hidden" onclick="generatePDF()">
+                    <span data-i18n="downloadBtn">Download PDF</span>
+                </button>
             </div>
 
+        </section>
+
+        <!-- How it works -->
+        <section class="steps">
+            <div class="step-item">
+                <span class="step-number">01. <span data-i18n="step1Title">Select</span></span>
+                <p data-i18n="step1Desc">Drag & drop your images.</p>
+            </div>
+            <div class="step-item">
+                <span class="step-number">02. <span data-i18n="step2Title">Order</span></span>
+                <p data-i18n="step2Desc">Rearrange pages visually.</p>
+            </div>
+            <div class="step-item">
+                <span class="step-number">03. <span data-i18n="step3Title">Export</span></span>
+                <p data-i18n="step3Desc">Get your PDF instantly.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="app-footer container">
+        <p data-i18n="footerCredit">A tiny web tool crafted by Obsidia.</p>
+        <div class="privacy-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span data-i18n="privacyNote">Your photos never leave this device.</span>
         </div>
-    </div>
+    </footer>
 
     <script>
-        // Inicializace jsPDF
-        const { jsPDF } = window.jspdf;
+        /* --- 1. LOCALIZATION SYSTEM --- */
+        const translations = {
+            en: {
+                title: "Seamless Image to PDF Converter",
+                subtitle: "Privacy-first conversion directly in your browser. No server uploads, completely free.",
+                uploadBtn: "Upload Images",
+                uploadHint: "or drop files here",
+                clearBtn: "Clear All",
+                downloadBtn: "Download PDF",
+                processing: "Processing images...",
+                generating: "Generating PDF...",
+                done: "Done!",
+                step1Title: "Select",
+                step1Desc: "Drag & drop your images.",
+                step2Title: "Order",
+                step2Desc: "Rearrange pages visually.",
+                step3Title: "Export",
+                step3Desc: "Get your PDF instantly.",
+                footerCredit: "A tiny web tool crafted by Obsidia.",
+                privacyNote: "Your photos never leave this device.",
+                filesCount: "images selected",
+                errorType: "Only image files are allowed."
+            },
+            cs: {
+                title: "Okamžitý převod obrázků do PDF",
+                subtitle: "Bezpečný převod přímo ve vašem prohlížeči. Žádné nahrávání na server, zcela zdarma.",
+                uploadBtn: "Nahrát obrázky",
+                uploadHint: "nebo přetáhněte soubory sem",
+                clearBtn: "Smazat vše",
+                downloadBtn: "Stáhnout PDF",
+                processing: "Zpracovávám obrázky...",
+                generating: "Generuji PDF...",
+                done: "Hotovo!",
+                step1Title: "Vybrat",
+                step1Desc: "Nahrajte nebo přetáhněte fotky.",
+                step2Title: "Seřadit",
+                step2Desc: "Upravte pořadí stránek tahem myši.",
+                step3Title: "Exportovat",
+                step3Desc: "Získejte výsledné PDF okamžitě.",
+                footerCredit: "Malý webový nástroj z dílny Obsidia.",
+                privacyNote: "Vaše fotky nikdy neopustí toto zařízení.",
+                filesCount: "vybraných obrázků",
+                errorType: "Povoleny jsou pouze soubory obrázků."
+            }
+        };
 
+        let currentLang = 'en';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            
+            // Update toggle buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.toLowerCase() === lang);
+            });
+
+            // Update text content
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+
+            // Update dynamic elements if any exist
+            updateUI();
+        }
+
+        /* --- 2. CORE LOGIC --- */
+        const { jsPDF } = window.jspdf;
+        let filesData = []; // Stores { file, id, previewUrl }
+
+        const dropzone = document.getElementById('dropzone');
         const fileInput = document.getElementById('fileInput');
+        const previewGrid = document.getElementById('previewGrid');
         const previewArea = document.getElementById('previewArea');
         const generateBtn = document.getElementById('generateBtn');
         const clearBtn = document.getElementById('clearBtn');
-        const countBadge = document.getElementById('countBadge');
-        const statusArea = document.getElementById('statusArea');
-        const progressBar = document.getElementById('progressBar');
-        const progressPercent = document.getElementById('progressPercent');
         const statusText = document.getElementById('statusText');
-        const errorMsg = document.getElementById('errorMsg');
+        const progressFill = document.getElementById('progressFill');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressContainer = document.getElementById('progressContainer');
 
-        let selectedFiles = [];
-
-        // Drag and Drop logika
+        // Drag & Drop for Upload
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            previewArea.addEventListener(eventName, preventDefaults, false);
+            dropzone.addEventListener(eventName, preventDefaults, false);
         });
 
         function preventDefaults(e) {
@@ -111,115 +635,154 @@
         }
 
         ['dragenter', 'dragover'].forEach(eventName => {
-            previewArea.addEventListener(eventName, () => previewArea.classList.add('drag-active'), false);
+            dropzone.addEventListener(eventName, () => dropzone.classList.add('drag-active'), false);
         });
 
         ['dragleave', 'drop'].forEach(eventName => {
-            previewArea.addEventListener(eventName, () => previewArea.classList.remove('drag-active'), false);
+            dropzone.addEventListener(eventName, () => dropzone.classList.remove('drag-active'), false);
         });
 
-        previewArea.addEventListener('drop', handleDrop, false);
-
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFiles(files);
-        }
-
-        fileInput.addEventListener('change', function() {
-            handleFiles(this.files);
-            // Reset input aby šlo vybrat stejné soubory znovu pokud uživatel smaže
-            this.value = '';
-        });
+        dropzone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
         function handleFiles(files) {
             const newFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
             
-            if (newFiles.length === 0) return;
+            if (newFiles.length === 0) {
+                alert(translations[currentLang].errorType);
+                return;
+            }
 
-            // Přidáme k existujícím
-            selectedFiles = [...selectedFiles, ...newFiles];
+            // Create objects with IDs for sorting
+            newFiles.forEach(file => {
+                filesData.push({
+                    file: file,
+                    id: Math.random().toString(36).substr(2, 9),
+                    previewUrl: URL.createObjectURL(file)
+                });
+            });
+
             updateUI();
+            renderPreviews();
+            
+            // Clear input so same files can be selected again
+            fileInput.value = '';
         }
 
-        clearBtn.addEventListener('click', () => {
-            selectedFiles = [];
+        function clearAll() {
+            filesData = [];
             updateUI();
-        });
+            renderPreviews();
+        }
 
         function updateUI() {
-            // Update badge a tlačítek
-            if (selectedFiles.length > 0) {
-                countBadge.textContent = selectedFiles.length;
-                countBadge.classList.remove('hidden');
-                clearBtn.classList.remove('hidden');
-                
-                generateBtn.disabled = false;
-                generateBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-                generateBtn.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700');
-                
-                // Překreslení preview (limitujeme na prvních 20 pro výkon, pokud je jich moc)
-                previewArea.innerHTML = '';
-                previewArea.classList.remove('items-center', 'justify-center');
-                
-                // Zobrazíme prvních 24 fotek jako náhled, zbytek jen info
-                const limit = 24;
-                selectedFiles.slice(0, limit).forEach((file, index) => {
-                    const reader = new FileReader();
-                    const div = document.createElement('div');
-                    div.className = 'relative aspect-square bg-gray-200 rounded overflow-hidden shadow-sm';
-                    
-                    const img = document.createElement('img');
-                    img.className = 'w-full h-full object-cover';
-                    
-                    reader.onload = (e) => { img.src = e.target.result; };
-                    reader.readAsDataURL(file);
-                    
-                    div.appendChild(img);
-                    previewArea.appendChild(div);
-                });
+            const count = filesData.length;
+            const hasFiles = count > 0;
 
-                if (selectedFiles.length > limit) {
-                    const moreDiv = document.createElement('div');
-                    moreDiv.className = 'flex items-center justify-center aspect-square bg-gray-100 rounded border border-gray-300 text-gray-500 font-bold';
-                    moreDiv.innerText = `+${selectedFiles.length - limit} dalších`;
-                    previewArea.appendChild(moreDiv);
-                }
-
-            } else {
-                countBadge.classList.add('hidden');
-                clearBtn.classList.add('hidden');
-                generateBtn.disabled = true;
-                generateBtn.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-                generateBtn.classList.remove('bg-green-600', 'text-white', 'hover:bg-green-700');
-                
-                previewArea.classList.add('items-center', 'justify-center');
-                previewArea.innerHTML = `
-                    <div class="text-center pointer-events-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <p class="text-sm">Klikněte na tlačítko nahoře<br>nebo přetáhněte fotky sem</p>
-                    </div>`;
-            }
+            previewArea.classList.toggle('has-files', hasFiles);
+            clearBtn.classList.toggle('hidden', !hasFiles);
+            generateBtn.classList.toggle('hidden', !hasFiles);
+            
+            document.getElementById('fileCount').textContent = `${count} ${translations[currentLang].filesCount}`;
         }
 
-        // Pomocná funkce pro načtení obrázku a jeho kompresi/změnu velikosti
-        // Toto je kritické pro 200+ fotek, jinak spadne paměť prohlížeče
-        function processImage(file) {
+        // Rendering & Reordering Logic
+        function renderPreviews() {
+            previewGrid.innerHTML = '';
+            
+            filesData.forEach((item, index) => {
+                const el = document.createElement('div');
+                el.className = 'preview-item';
+                el.draggable = true;
+                el.dataset.index = index; // Store current index
+                
+                el.innerHTML = `
+                    <span class="preview-badge">${index + 1}</span>
+                    <img src="${item.previewUrl}" alt="Preview">
+                    <button class="remove-btn" onclick="removeFile(${index})">×</button>
+                `;
+
+                // Drag Events for Reordering
+                el.addEventListener('dragstart', handleDragStart);
+                el.addEventListener('dragover', handleDragOver);
+                el.addEventListener('drop', handleDropSort);
+                el.addEventListener('dragenter', handleDragEnter);
+                el.addEventListener('dragleave', handleDragLeave);
+
+                previewGrid.appendChild(el);
+            });
+        }
+
+        function removeFile(index) {
+            // Stop event propagation handled in onclick HTML attribute
+            window.event.stopPropagation(); 
+            filesData.splice(index, 1);
+            updateUI();
+            renderPreviews();
+        }
+
+        // Drag Sort Handlers
+        let dragSrcEl = null;
+
+        function handleDragStart(e) {
+            this.style.opacity = '0.4';
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDropSort(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            
+            // Don't do anything if dropping the same column we're dragging.
+            if (dragSrcEl !== this) {
+                const oldIndex = parseInt(dragSrcEl.dataset.index);
+                const newIndex = parseInt(this.dataset.index);
+
+                // Reorder array
+                const movedItem = filesData[oldIndex];
+                filesData.splice(oldIndex, 1);
+                filesData.splice(newIndex, 0, movedItem);
+
+                renderPreviews();
+            }
+            return false;
+        }
+
+        // Clean up drag opacity on end
+        document.addEventListener('dragend', (e) => {
+           document.querySelectorAll('.preview-item').forEach(el => {
+               el.classList.remove('drag-over');
+               el.style.opacity = '1';
+           });
+        });
+
+
+        /* --- 3. PDF GENERATION LOGIC --- */
+        async function processImage(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     const img = new Image();
                     img.onload = () => {
-                        // Vytvoříme canvas pro resize
                         const canvas = document.createElement('canvas');
                         let width = img.width;
                         let height = img.height;
-
-                        // Maximální rozměr pro PDF (dobrá kvalita ale menší velikost)
-                        // A4 při 150 DPI je cca 1240x1754 px
-                        const MAX_DIMENSION = 1600;
+                        const MAX_DIMENSION = 2000; // High quality limit
 
                         if (width > height) {
                             if (width > MAX_DIMENSION) {
@@ -235,15 +798,11 @@
 
                         canvas.width = width;
                         canvas.height = height;
-
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-
-                        // Komprese na JPEG 0.75 kvality
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
                         
                         resolve({
-                            data: dataUrl,
+                            data: canvas.toDataURL('image/jpeg', 0.8), // 80% quality
                             w: width,
                             h: height,
                             isLandscape: width > height
@@ -257,67 +816,56 @@
             });
         }
 
-        generateBtn.addEventListener('click', async () => {
-            if (selectedFiles.length === 0) return;
+        async function generatePDF() {
+            if (filesData.length === 0) return;
 
-            statusArea.classList.remove('hidden');
+            // UI Updates
             generateBtn.disabled = true;
-            errorMsg.classList.add('hidden');
+            progressContainer.classList.add('active');
+            statusText.textContent = translations[currentLang].processing;
             
-            // Inicializace PDF (default A4 portrait)
-            const pdf = new jsPDF({
-                orientation: 'p',
-                unit: 'mm',
-                format: 'a4'
-            });
+            const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            const total = filesData.length;
 
-            const total = selectedFiles.length;
-            
             try {
                 for (let i = 0; i < total; i++) {
-                    // Update progress UI
+                    // Update Progress
                     const percent = Math.round(((i) / total) * 100);
-                    progressBar.style.width = `${percent}%`;
+                    progressFill.style.width = `${percent}%`;
                     progressPercent.textContent = `${percent}%`;
-                    statusText.textContent = `Zpracovávám fotku ${i + 1} z ${total}...`;
+                    statusText.textContent = `${translations[currentLang].processing} (${i + 1}/${total})`;
+                    
+                    // Allow UI repaint
+                    await new Promise(r => setTimeout(r, 20));
 
-                    // Krátká pauza aby se stihlo překreslit UI
-                    await new Promise(r => setTimeout(r, 10));
+                    const imgData = await processImage(filesData[i].file);
 
-                    const imgData = await processImage(selectedFiles[i]);
+                    // Add page (skip for first loop iteration as doc initializes with one)
+                    if (i > 0) pdf.addPage();
 
-                    // Nastavení stránky
+                    // Calculate Dimensions for A4
                     const pageWidth = 210;
                     const pageHeight = 297;
-                    
-                    // Pokud je to první obrázek, stránka už existuje, jinak přidáme novou
-                    if (i > 0) {
-                        pdf.addPage();
-                    }
-
-                    // Logika orientace
                     let finalW, finalH, x, y;
-                    
-                    // Chceme využít co nejvíce místa na stránce
-                    // Pokud je obrázek na šířku, otočíme stránku na šířku
+
+                    // Smart Orientation Logic
                     if (imgData.isLandscape) {
-                         pdf.setPage(i + 1); // Set current page context
+                         pdf.setPage(i + 1);
                          pdf.internal.pageSize.width = pageHeight;
                          pdf.internal.pageSize.height = pageWidth;
-                         // A4 Landscape: 297x210
+                         
+                         // Landscape math
                          finalW = 297;
                          finalH = (imgData.h / imgData.w) * 297;
                          
-                         // Pokud je po přepočtu výška větší než stránka, musíme omezit výšku
                          if (finalH > 210) {
                              finalH = 210;
                              finalW = (imgData.w / imgData.h) * 210;
                          }
-                         
                          x = (297 - finalW) / 2;
                          y = (210 - finalH) / 2;
                     } else {
-                        // Portrait
+                        // Portrait math
                          pdf.internal.pageSize.width = pageWidth;
                          pdf.internal.pageSize.height = pageHeight;
                          
@@ -328,7 +876,6 @@
                              finalH = 297;
                              finalW = (imgData.w / imgData.h) * 297;
                          }
-
                          x = (210 - finalW) / 2;
                          y = (297 - finalH) / 2;
                     }
@@ -336,30 +883,31 @@
                     pdf.addImage(imgData.data, 'JPEG', x, y, finalW, finalH);
                 }
 
-                // Finále
-                progressBar.style.width = '100%';
+                // Finalize
+                progressFill.style.width = '100%';
                 progressPercent.textContent = '100%';
-                statusText.textContent = 'Generuji soubor...';
-                
-                await new Promise(r => setTimeout(r, 100)); // Malá pauza
+                statusText.textContent = translations[currentLang].done;
 
-                pdf.save(`fotky_album_${new Date().toISOString().slice(0,10)}.pdf`);
-                
-                statusText.textContent = 'Hotovo!';
+                const fileName = `images-combined-${new Date().toISOString().slice(0,10)}.pdf`;
+                pdf.save(fileName);
+
+                // Reset UI after delay
                 setTimeout(() => {
-                    statusArea.classList.add('hidden');
+                    progressContainer.classList.remove('active');
                     generateBtn.disabled = false;
-                }, 3000);
+                    progressFill.style.width = '0%';
+                }, 2000);
 
             } catch (err) {
                 console.error(err);
-                errorMsg.textContent = 'Chyba při generování: ' + err.message;
-                errorMsg.classList.remove('hidden');
-                statusArea.classList.add('hidden');
+                alert("Error: " + err.message);
                 generateBtn.disabled = false;
+                progressContainer.classList.remove('active');
             }
-        });
-
+        }
+        
+        // Initial setup
+        setLanguage('en'); // Start in English
     </script>
 </body>
 </html>
