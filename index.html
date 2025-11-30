@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fotky do PDF</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .drag-active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 font-sans text-gray-800">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-blue-600 p-6 text-white">
+            <h1 class="text-2xl font-bold">Převodník fotek do PDF</h1>
+            <p class="text-blue-100 text-sm mt-1">Vše probíhá ve vašem prohlížeči. Žádné nahrávání na server.</p>
+        </div>
+
+        <div class="p-6">
+            
+            <!-- Controls -->
+            <div class="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
+                <div class="w-full md:w-auto">
+                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
+                    <label for="fileInput" class="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 px-6 py-3 rounded-lg font-medium border border-blue-200 transition-colors flex items-center justify-center gap-2 w-full md:w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Vybrat fotky (lze i 200+)
+                    </label>
+                </div>
+
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button id="clearBtn" class="hidden px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors">
+                        Smazat vše
+                    </button>
+                    <button id="generateBtn" disabled class="flex-1 md:flex-none px-6 py-3 bg-gray-300 text-gray-500 rounded-lg font-bold cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Stáhnout PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status & Progress -->
+            <div id="statusArea" class="hidden mb-6">
+                <div class="flex justify-between text-sm font-medium mb-1 text-gray-600">
+                    <span id="statusText">Zpracovávám...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div id="errorMsg" class="hidden mb-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg"></div>
+
+            <!-- Preview Grid -->
+            <div class="border-t pt-4">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="text-lg font-semibold text-gray-700">Náhled <span id="countBadge" class="ml-2 text-sm bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full hidden">0</span></h2>
+                    <span class="text-xs text-gray-400">Pořadí odpovídá pořadí v PDF</span>
+                </div>
+                
+                <div id="previewArea" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 min-h-[200px] border-2 border-dashed border-gray-300 rounded-lg p-4 items-center justify-center text-gray-400 bg-gray-50">
+                    <div class="text-center pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="text-sm">Klikněte na tlačítko nahoře<br>nebo přetáhněte fotky sem</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Inicializace jsPDF
+        const { jsPDF } = window.jspdf;
+
+        const fileInput = document.getElementById('fileInput');
+        const previewArea = document.getElementById('previewArea');
+        const generateBtn = document.getElementById('generateBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const countBadge = document.getElementById('countBadge');
+        const statusArea = document.getElementById('statusArea');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const statusText = document.getElementById('statusText');
+        const errorMsg = document.getElementById('errorMsg');
+
+        let selectedFiles = [];
+
+        // Drag and Drop logika
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            previewArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            previewArea.addEventListener(eventName, () => previewArea.classList.add('drag-active'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            previewArea.addEventListener(eventName, () => previewArea.classList.remove('drag-active'), false);
+        });
+
+        previewArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+            // Reset input aby šlo vybrat stejné soubory znovu pokud uživatel smaže
+            this.value = '';
+        });
+
+        function handleFiles(files) {
+            const newFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            
+            if (newFiles.length === 0) return;
+
+            // Přidáme k existujícím
+            selectedFiles = [...selectedFiles, ...newFiles];
+            updateUI();
+        }
+
+        clearBtn.addEventListener('click', () => {
+            selectedFiles = [];
+            updateUI();
+        });
+
+        function updateUI() {
+            // Update badge a tlačítek
+            if (selectedFiles.length > 0) {
+                countBadge.textContent = selectedFiles.length;
+                countBadge.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
+                
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                generateBtn.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700');
+                
+                // Překreslení preview (limitujeme na prvních 20 pro výkon, pokud je jich moc)
+                previewArea.innerHTML = '';
+                previewArea.classList.remove('items-center', 'justify-center');
+                
+                // Zobrazíme prvních 24 fotek jako náhled, zbytek jen info
+                const limit = 24;
+                selectedFiles.slice(0, limit).forEach((file, index) => {
+                    const reader = new FileReader();
+                    const div = document.createElement('div');
+                    div.className = 'relative aspect-square bg-gray-200 rounded overflow-hidden shadow-sm';
+                    
+                    const img = document.createElement('img');
+                    img.className = 'w-full h-full object-cover';
+                    
+                    reader.onload = (e) => { img.src = e.target.result; };
+                    reader.readAsDataURL(file);
+                    
+                    div.appendChild(img);
+                    previewArea.appendChild(div);
+                });
+
+                if (selectedFiles.length > limit) {
+                    const moreDiv = document.createElement('div');
+                    moreDiv.className = 'flex items-center justify-center aspect-square bg-gray-100 rounded border border-gray-300 text-gray-500 font-bold';
+                    moreDiv.innerText = `+${selectedFiles.length - limit} dalších`;
+                    previewArea.appendChild(moreDiv);
+                }
+
+            } else {
+                countBadge.classList.add('hidden');
+                clearBtn.classList.add('hidden');
+                generateBtn.disabled = true;
+                generateBtn.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                generateBtn.classList.remove('bg-green-600', 'text-white', 'hover:bg-green-700');
+                
+                previewArea.classList.add('items-center', 'justify-center');
+                previewArea.innerHTML = `
+                    <div class="text-center pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="text-sm">Klikněte na tlačítko nahoře<br>nebo přetáhněte fotky sem</p>
+                    </div>`;
+            }
+        }
+
+        // Pomocná funkce pro načtení obrázku a jeho kompresi/změnu velikosti
+        // Toto je kritické pro 200+ fotek, jinak spadne paměť prohlížeče
+        function processImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Vytvoříme canvas pro resize
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        // Maximální rozměr pro PDF (dobrá kvalita ale menší velikost)
+                        // A4 při 150 DPI je cca 1240x1754 px
+                        const MAX_DIMENSION = 1600;
+
+                        if (width > height) {
+                            if (width > MAX_DIMENSION) {
+                                height *= MAX_DIMENSION / width;
+                                width = MAX_DIMENSION;
+                            }
+                        } else {
+                            if (height > MAX_DIMENSION) {
+                                width *= MAX_DIMENSION / height;
+                                height = MAX_DIMENSION;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Komprese na JPEG 0.75 kvality
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                        
+                        resolve({
+                            data: dataUrl,
+                            w: width,
+                            h: height,
+                            isLandscape: width > height
+                        });
+                    };
+                    img.onerror = reject;
+                    img.src = event.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            statusArea.classList.remove('hidden');
+            generateBtn.disabled = true;
+            errorMsg.classList.add('hidden');
+            
+            // Inicializace PDF (default A4 portrait)
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const total = selectedFiles.length;
+            
+            try {
+                for (let i = 0; i < total; i++) {
+                    // Update progress UI
+                    const percent = Math.round(((i) / total) * 100);
+                    progressBar.style.width = `${percent}%`;
+                    progressPercent.textContent = `${percent}%`;
+                    statusText.textContent = `Zpracovávám fotku ${i + 1} z ${total}...`;
+
+                    // Krátká pauza aby se stihlo překreslit UI
+                    await new Promise(r => setTimeout(r, 10));
+
+                    const imgData = await processImage(selectedFiles[i]);
+
+                    // Nastavení stránky
+                    const pageWidth = 210;
+                    const pageHeight = 297;
+                    
+                    // Pokud je to první obrázek, stránka už existuje, jinak přidáme novou
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+
+                    // Logika orientace
+                    let finalW, finalH, x, y;
+                    
+                    // Chceme využít co nejvíce místa na stránce
+                    // Pokud je obrázek na šířku, otočíme stránku na šířku
+                    if (imgData.isLandscape) {
+                         pdf.setPage(i + 1); // Set current page context
+                         pdf.internal.pageSize.width = pageHeight;
+                         pdf.internal.pageSize.height = pageWidth;
+                         // A4 Landscape: 297x210
+                         finalW = 297;
+                         finalH = (imgData.h / imgData.w) * 297;
+                         
+                         // Pokud je po přepočtu výška větší než stránka, musíme omezit výšku
+                         if (finalH > 210) {
+                             finalH = 210;
+                             finalW = (imgData.w / imgData.h) * 210;
+                         }
+                         
+                         x = (297 - finalW) / 2;
+                         y = (210 - finalH) / 2;
+                    } else {
+                        // Portrait
+                         pdf.internal.pageSize.width = pageWidth;
+                         pdf.internal.pageSize.height = pageHeight;
+                         
+                         finalW = 210;
+                         finalH = (imgData.h / imgData.w) * 210;
+
+                         if (finalH > 297) {
+                             finalH = 297;
+                             finalW = (imgData.w / imgData.h) * 297;
+                         }
+
+                         x = (210 - finalW) / 2;
+                         y = (297 - finalH) / 2;
+                    }
+
+                    pdf.addImage(imgData.data, 'JPEG', x, y, finalW, finalH);
+                }
+
+                // Finále
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+                statusText.textContent = 'Generuji soubor...';
+                
+                await new Promise(r => setTimeout(r, 100)); // Malá pauza
+
+                pdf.save(`fotky_album_${new Date().toISOString().slice(0,10)}.pdf`);
+                
+                statusText.textContent = 'Hotovo!';
+                setTimeout(() => {
+                    statusArea.classList.add('hidden');
+                    generateBtn.disabled = false;
+                }, 3000);
+
+            } catch (err) {
+                console.error(err);
+                errorMsg.textContent = 'Chyba při generování: ' + err.message;
+                errorMsg.classList.remove('hidden');
+                statusArea.classList.add('hidden');
+                generateBtn.disabled = false;
+            }
+        });
+
+    </script>
+</body>
+</html>
